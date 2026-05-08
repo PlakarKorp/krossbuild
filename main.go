@@ -282,6 +282,7 @@ func worker(
 }
 
 func main() {
+	var name string
 	var edition string
 	var version string
 	var builder string
@@ -289,6 +290,14 @@ func main() {
 	var artifactsDirectory string
 
 	var targets targetList
+
+	flag.StringVar(
+		&name,
+		"name",
+		"",
+		"builder name",
+	)
+
 
 	flag.StringVar(
 		&edition,
@@ -333,9 +342,14 @@ func main() {
 
 	flag.Parse()
 
+	lockName := "krossbuild.lock"
+	if name != "" {
+		lockName = "krossbuild."+name+".lock"
+	}
+
 	lockPath := filepath.Join(
 		os.TempDir(),
-		"krossbuild.lock",
+		lockName,
 	)
 
 	if err := acquireLock(lockPath); err != nil {
