@@ -273,6 +273,8 @@ func worker(
 			continue
 		}
 
+		_ = os.Chmod(outputPath, 0o0644)
+
 		fmt.Printf(
 			"[worker %d] DONE %s\n",
 			id,
@@ -297,7 +299,6 @@ func main() {
 		"",
 		"builder name",
 	)
-
 
 	flag.StringVar(
 		&edition,
@@ -344,7 +345,7 @@ func main() {
 
 	lockName := "krossbuild.lock"
 	if name != "" {
-		lockName = "krossbuild."+name+".lock"
+		lockName = "krossbuild." + name + ".lock"
 	}
 
 	lockPath := filepath.Join(
