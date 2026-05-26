@@ -21,6 +21,16 @@ type Recipe struct {
 	Path string `yaml:"-"`
 }
 
+// Semver returns the semver portion of the recipe Version, stripping
+// any "<subdir>/" prefix used to denote a mono-repo tag (e.g. "s3/v1.1.2"
+// -> "v1.1.2"). Matches the artifact filename plakar pkg build produces.
+func (r *Recipe) Semver() string {
+	if i := strings.LastIndex(r.Version, "/"); i >= 0 {
+		return r.Version[i+1:]
+	}
+	return r.Version
+}
+
 type Target struct {
 	GOOS   string
 	GOARCH string
@@ -140,7 +150,7 @@ func artifactFilename(job Job) string {
 	return fmt.Sprintf(
 		"%s_%s_%s_%s.ptar",
 		job.Recipe.Name,
-		job.Recipe.Version,
+		job.Recipe.Semver(),
 		job.Target.GOOS,
 		job.Target.GOARCH,
 	)
