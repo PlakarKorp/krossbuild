@@ -1,8 +1,11 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -170,6 +173,82 @@ func artifactPath(baseDirectory string, job Job) string {
 	)
 }
 
+func checksumPath(path string) string {
+	return path + ".sum"
+}
+
+func sha256File(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+
+	defer file.Close()
+
+	hash := sha256.New()
+
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// writeChecksum writes "SHA256 (<basename>) = <sha256>\n" to <path>.sum.
+// This is BSD tagged form, as emitted by OpenBSD sha256(1) and parsed by
+// signify -C, so the checksums stay usable as signed input later. Verify with
+// shasum -a 256 -c from the containing directory; note that GNU sha256sum -c
+// does not read tagged form.
+func writeChecksum(path string) error {
+	sum, err := sha256File(path)
+	if err != nil {
+		return err
+	}
+
+	content := fmt.Sprintf(
+		"SHA256 (%s) = %s\n",
+		filepath.Base(path),
+		sum,
+	)
+
+	return os.WriteFile(
+		checksumPath(path),
+		[]byte(content),
+		0644,
+	)
+}
+
+// stageRecipe copies the recipe into the package artifact directory so the
+// tree mirrors the dist layout, and checksums it. Called from main before any
+// job is dispatched: workers of the same package share a directory, so doing
+// this concurrently would race.
+func stageRecipe(baseDirectory string, recipe Recipe) error {
+	outputDirectory := filepath.Join(
+		baseDirectory,
+		recipe.Name,
+	)
+
+	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
+		return err
+	}
+
+	data, err := os.ReadFile(recipe.Path)
+	if err != nil {
+		return err
+	}
+
+	outputPath := filepath.Join(
+		outputDirectory,
+		"recipe.yaml",
+	)
+
+	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+		return err
+	}
+
+	return writeChecksum(outputPath)
+}
+
 func acquireLock(lockPath string) error {
 	file, err := os.OpenFile(
 		lockPath,
@@ -209,8 +288,21 @@ func worker(
 			job,
 		)
 
-		// Skip existing artifacts
+		// Skip existing artifacts, but make sure they carry a checksum:
+		// a run that skips everything must still leave a complete tree.
 		if _, err := os.Stat(outputPath); err == nil {
+			if _, err := os.Stat(checksumPath(outputPath)); err != nil {
+				if err := writeChecksum(outputPath); err != nil {
+					fmt.Printf(
+						"[worker %d] ERROR checksumming %s: %v\n",
+						id,
+						outputPath,
+						err,
+					)
+					continue
+				}
+			}
+
 			fmt.Printf(
 				"[worker %d] SKIP existing artifact %s\n",
 				id,
@@ -284,6 +376,16 @@ func worker(
 		}
 
 		_ = os.Chmod(outputPath, 0o0644)
+
+		if err := writeChecksum(outputPath); err != nil {
+			fmt.Printf(
+				"[worker %d] ERROR checksumming %s: %v\n",
+				id,
+				outputPath,
+				err,
+			)
+			continue
+		}
 
 		fmt.Printf(
 			"[worker %d] DONE %s\n",
@@ -405,6 +507,17 @@ func main() {
 
 	fmt.Printf("Found %d recipes\n", len(recipes))
 	fmt.Printf("Using %d workers\n", workers)
+
+	for _, recipe := range recipes {
+		if err := stageRecipe(artifactsDirectory, recipe); err != nil {
+			fmt.Printf(
+				"Error staging recipe %s: %v\n",
+				recipe.Path,
+				err,
+			)
+			os.Exit(1)
+		}
+	}
 
 	totalJobs := len(recipes) * len(parsedTargets)
 
