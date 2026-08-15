@@ -195,10 +195,10 @@ func sha256File(path string) (string, error) {
 }
 
 // writeChecksum writes "SHA256 (<basename>) = <sha256>\n" to <path>.sum.
-// This is BSD tagged form, as emitted by OpenBSD sha256(1) and parsed by
-// signify -C, so the checksums stay usable as signed input later. Verify with
-// shasum -a 256 -c from the containing directory; note that GNU sha256sum -c
-// does not read tagged form.
+// This is BSD tagged form, as emitted by OpenBSD sha256(1) and by GNU
+// sha256sum --tag, and parsed by signify -C, so the checksums stay usable as
+// signed input later. Verify with either sha256sum -c or shasum -a 256 -c from
+// the containing directory; both auto-detect tagged input.
 func writeChecksum(path string) error {
 	sum, err := sha256File(path)
 	if err != nil {
