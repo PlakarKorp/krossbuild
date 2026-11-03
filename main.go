@@ -16,6 +16,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// osExit is swapped out by the tests so main can be exercised in-process.
+var osExit = os.Exit
+
 type Recipe struct {
 	Name       string `yaml:"name"`
 	Version    string `yaml:"version"`
@@ -467,7 +470,7 @@ func main() {
 
 	if err := acquireLock(lockPath); err != nil {
 		fmt.Println("Error:", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	defer os.Remove(lockPath)
@@ -484,7 +487,7 @@ func main() {
 	builderPath, err := ensureBuilderInstalled(builder)
 	if err != nil {
 		fmt.Println("Error installing builder:", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	var parsedTargets []Target
@@ -493,7 +496,7 @@ func main() {
 		target, err := parseTarget(value)
 		if err != nil {
 			fmt.Println("Error:", err)
-			os.Exit(1)
+			osExit(1)
 		}
 
 		parsedTargets = append(parsedTargets, target)
@@ -502,7 +505,7 @@ func main() {
 	recipes, err := findRecipes(rootDirectory)
 	if err != nil {
 		fmt.Println("Error:", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	fmt.Printf("Found %d recipes\n", len(recipes))
@@ -515,7 +518,7 @@ func main() {
 				recipe.Path,
 				err,
 			)
-			os.Exit(1)
+			osExit(1)
 		}
 	}
 
