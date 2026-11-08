@@ -203,7 +203,7 @@ func TestWorker(t *testing.T) {
 			t.Errorf("artifact mode = %o, want 644", perm)
 		}
 
-		want := "openbsd/arm64\npkg\nbuild\n" + recipePath + "\n"
+		want := "openbsd/arm64\nCGO_ENABLED=0\npkg\nbuild\n" + recipePath + "\n"
 		if got := readFile(t, log); got != want {
 			t.Errorf("builder invoked as %q, want %q", got, want)
 		}
