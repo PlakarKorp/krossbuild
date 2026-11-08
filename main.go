@@ -348,9 +348,13 @@ func worker(
 		// Build inside artifact directory
 		cmd.Dir = outputDirectory
 
+		// Go only disables cgo on its own when cross-compiling; a build
+		// for the native OS/arch would otherwise link against the host
+		// libc. Force it off so every artifact is static.
 		cmd.Env = append(os.Environ(),
 			"GOOS="+job.Target.GOOS,
 			"GOARCH="+job.Target.GOARCH,
+			"CGO_ENABLED=0",
 		)
 
 		cmd.Stdout = os.Stdout

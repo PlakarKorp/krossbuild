@@ -95,10 +95,10 @@ func exists(path string) bool {
 }
 
 // builderStub is the body of a fake "plakar pkg build <recipe.yaml>": it logs
-// its arguments and the GOOS/GOARCH it was given to KROSSBUILD_STUB_LOG when
-// set, then creates the artifact plakar would produce, named after the recipe
-// and the target, in its working directory.
-const builderStub = `[ -n "$KROSSBUILD_STUB_LOG" ] && printf '%s\n' "$GOOS/$GOARCH" "$@" > "$KROSSBUILD_STUB_LOG"
+// its arguments and the GOOS/GOARCH and CGO_ENABLED it was given to
+// KROSSBUILD_STUB_LOG when set, then creates the artifact plakar would
+// produce, named after the recipe and the target, in its working directory.
+const builderStub = `[ -n "$KROSSBUILD_STUB_LOG" ] && printf '%s\n' "$GOOS/$GOARCH" "CGO_ENABLED=$CGO_ENABLED" "$@" > "$KROSSBUILD_STUB_LOG"
 name=$(sed -n 's/^name: //p' "$3")
 version=$(sed -n 's/^version: //p' "$3" | sed 's#.*/##')
 : > "${name}_${version}_${GOOS}_${GOARCH}.ptar"`
